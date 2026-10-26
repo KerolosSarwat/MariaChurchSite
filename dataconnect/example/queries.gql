@@ -1,0 +1,181 @@
+mutation CreateUser @auth(level: USER) {
+  user_insert(data: {
+    id_expr: "auth.uid",
+    email: "user@example.com",
+    fullName: "John Doe",
+    role: "Member"
+  })
+}
+
+mutation UpdateUser @auth(level: USER) {
+  user_update(key: {id_expr: "auth.uid"}, data: {fullName: "John Updated"})
+}
+
+mutation DeleteUser @auth(level: USER) {
+  user_delete(key: {id_expr: "auth.uid"})
+}
+
+query GetUser @auth(level: USER) {
+  user(key: {id_expr: "auth.uid"}) {
+    email
+    fullName
+  }
+}
+
+query ListUsers @auth(level: USER) {
+  users {
+    fullName
+    role
+  }
+}
+
+mutation CreateEvent @auth(level: PUBLIC, insecureReason: "Events are public info for the congregation.") {
+  event_insert(data: {
+    title: "Sunday Service",
+    startTime: "2024-05-20T10:00:00Z",
+    location: "Main Hall"
+  })
+}
+
+mutation UpdateEvent($id: UUID!, $title: String) @auth(level: PUBLIC, insecureReason: "Event updates are public.") {
+  event_update(key: {id: $id}, data: {title: $title})
+}
+
+mutation DeleteEvent($id: UUID!) @auth(level: PUBLIC, insecureReason: "Event deletion is public.") {
+  event_delete(key: {id: $id})
+}
+
+query GetEvent($id: UUID!) @auth(level: PUBLIC, insecureReason: "Publicly visible event.") {
+  event(id: $id) {
+    title
+    startTime
+    location
+  }
+}
+
+query ListEvents @auth(level: PUBLIC, insecureReason: "Listing public events.") {
+  events {
+    title
+    startTime
+  }
+}
+
+mutation CreateSermon @auth(level: PUBLIC, insecureReason: "Sermons are for public outreach.") {
+  sermon_insert(data: {
+    title: "Faith Journey",
+    preacher: "Pastor Mike",
+    publishDate: "2024-05-19",
+    videoUrl: "https://youtube.com/example"
+  })
+}
+
+mutation UpdateSermon($id: UUID!, $title: String) @auth(level: PUBLIC, insecureReason: "Public sermon updates.") {
+  sermon_update(key: {id: $id}, data: {title: $title})
+}
+
+mutation DeleteSermon($id: UUID!) @auth(level: PUBLIC, insecureReason: "Public sermon deletion.") {
+  sermon_delete(key: {id: $id})
+}
+
+query GetSermon($id: UUID!) @auth(level: PUBLIC, insecureReason: "Public sermon access.") {
+  sermon(id: $id) {
+    title
+    preacher
+  }
+}
+
+query ListSermons @auth(level: PUBLIC, insecureReason: "Public sermon archive.") {
+  sermons {
+    title
+    publishDate
+  }
+}
+
+mutation CreateGroup @auth(level: USER) {
+  group_insert(data: {
+    name: "Youth Group",
+    leader: {id_expr: "auth.uid"}
+  })
+}
+
+mutation UpdateGroup($id: UUID!, $name: String) @auth(level: USER) {
+  group_update(key: {id: $id}, data: {name: $name})
+}
+
+mutation DeleteGroup($id: UUID!) @auth(level: USER) {
+  group_delete(key: {id: $id})
+}
+
+query GetGroup($id: UUID!) @auth(level: USER) {
+  group(id: $id) {
+    name
+    leader { fullName }
+  }
+}
+
+query ListGroups @auth(level: USER) {
+  groups {
+    name
+    meetingDay
+  }
+}
+
+mutation CreateDonation @auth(level: USER) {
+  donation_insert(data: {
+    user: {id_expr: "auth.uid"},
+    amount: 50.0,
+    date: "2024-05-20T12:00:00Z"
+  })
+}
+
+mutation UpdateDonation($id: UUID!, $amount: Float) @auth(level: USER) {
+  donation_update(key: {id: $id}, data: {amount: $amount})
+}
+
+mutation DeleteDonation($id: UUID!) @auth(level: USER) {
+  donation_delete(key: {id: $id})
+}
+
+query GetDonation($id: UUID!) @auth(level: USER) {
+  donation(id: $id) {
+    amount
+    date
+  }
+}
+
+query ListMyDonations @auth(level: USER) {
+  donations(where: {user: {id: {eq_expr: "auth.uid"}}}) {
+    amount
+    date
+  }
+}
+
+mutation CreateConnectCard @auth(level: PUBLIC, insecureReason: "Visitors need to submit contact info.") {
+  connectCard_insert(data: {
+    visitorName: "Jane Smith",
+    email: "jane@example.com",
+    requestType: "Prayer"
+  })
+}
+
+mutation UpdateConnectCard($id: UUID!, $message: String) @auth(level: USER) {
+  connectCard_update(key: {id: $id}, data: {message: $message})
+}
+
+mutation DeleteConnectCard($id: UUID!) @auth(level: USER) {
+  connectCard_delete(key: {id: $id})
+}
+
+query GetConnectCard($id: UUID!) @auth(level: USER) {
+  connectCard(id: $id) {
+    visitorName
+    requestType
+  }
+}
+
+query ListMyConnectCards @auth(level: USER) {
+  connectCards(where: {user: {id: {eq_expr: "auth.uid"}}}) {
+    visitorName
+    requestType
+  }
+}

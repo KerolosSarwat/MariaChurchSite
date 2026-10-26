@@ -1,0 +1,32 @@
+mutation SeedData @transaction {
+  user_insertMany(data: [
+    {email: "alice@example.com", fullName: "Alice Smith", role: "Admin"},
+    {email: "bob@example.com", fullName: "Bob Jones", role: "Member"},
+    {email: "charlie@example.com", fullName: "Charlie Brown", role: "Leader"}
+  ])
+  event_insertMany(data: [
+    {title: "Sunday Service", startTime: "2024-05-19T09:00:00Z", location: "Main Hall"},
+    {title: "Bible Study", startTime: "2024-05-22T19:00:00Z", location: "Room 101"},
+    {title: "Community Potluck", startTime: "2024-05-25T12:00:00Z", location: "Fellowship Hall"}
+  ])
+  sermon_insertMany(data: [
+    {title: "Grace and Mercy", preacher: "Pastor Dave", publishDate: "2024-05-12", videoUrl: "https://example.com/sermon1"},
+    {title: "Living by Faith", preacher: "Rev. Sarah", publishDate: "2024-05-05", videoUrl: "https://example.com/sermon2"},
+    {title: "The Book of Acts", preacher: "Pastor Dave", publishDate: "2024-04-28", videoUrl: "https://example.com/sermon3"}
+  ])
+  group_insertMany(data: [
+    {name: "Youth Group", leader: {id: "550e8400-e29b-41d4-a716-446655440003"}},
+    {name: "Young Adults", leader: {id: "550e8400-e29b-41d4-a716-446655440003"}},
+    {name: "Marriage Ministry", leader: {id: "550e8400-e29b-41d4-a716-446655440001"}}
+  ])
+  donation_insertMany(data: [
+    {user: {id: "550e8400-e29b-41d4-a716-446655440001"}, amount: 50.0, date: "2024-05-10T10:00:00Z"},
+    {user: {id: "550e8400-e29b-41d4-a716-446655440002"}, amount: 100.0, date: "2024-05-11T14:30:00Z"},
+    {user: {id: "550e8400-e29b-41d4-a716-446655440001"}, amount: 25.0, date: "2024-05-12T09:15:00Z"}
+  ])
+  connectCard_insertMany(data: [
+    {visitorName: "David Miller", email: "david@test.com", requestType: "Prayer", message: "Please pray for my family."},
+    {visitorName: "Eve Adams", email: "eve@test.com", requestType: "Info", message: "How do I join a group?"},
+    {visitorName: "Frank Wright", email: "frank@test.com", requestType: "Volunteer", message: "I want to help with sound."}
+  ])
+}

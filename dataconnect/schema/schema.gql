@@ -1,0 +1,46 @@
+type User @table {
+  email: String!
+  fullName: String!
+  role: String!
+  phoneNumber: String
+  joinDate: Date
+}
+
+type Event @table {
+  title: String!
+  startTime: Timestamp!
+  location: String!
+  description: String
+  registrationLink: String
+}
+
+type Sermon @table {
+  title: String!
+  preacher: String!
+  publishDate: Date!
+  videoUrl: String!
+  seriesName: String
+  scriptureReference: String
+}
+
+type Group @table {
+  name: String!
+  leader: User!
+  meetingDay: String
+  description: String
+}
+
+type Donation @table {
+  user: User!
+  amount: Float!
+  date: Timestamp!
+  fundType: String
+}
+
+type ConnectCard @table {
+  visitorName: String!
+  email: String!
+  requestType: String!
+  message: String
+  user: User
+}

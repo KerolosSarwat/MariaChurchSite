@@ -1,0 +1,69 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Next.js Build Output & Cache
+.next/
+/out/
+/build
+/dist
+
+# Large Backup & Archive Files (GitHub 100MB limit; avoids pushing js.zip)
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+js.zip
+
+# Firebase & Debug Logs
+*.log
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+database-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Firebase CLI Cache
+.firebase/
+
+# Local Environment Variables & Secrets
+.env
+.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# IDE & Editor Settings
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.sw?
+
+# Testing & Coverage
+/coverage/
+
+# Vercel Deployment
+.vercel/
+
+# TypeScript / Build Info
+*.tsbuildinfo
+next-env.d.ts
