@@ -5,6 +5,7 @@ import { getSubjectItems, formatLevelNames } from '../lib/subjects';
 import { SUBJECT_DEGREE_LABELS } from '../lib/appConfig';
 import { useAppConfig } from './AppConfigProvider';
 import SubjectDetailModal from './SubjectDetailModal';
+import SubjectReaderPane from './SubjectReaderPane';
 
 const formatDate = (date) =>
   date ? date.toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' }) : null;
@@ -22,7 +23,7 @@ const SUBJECTS_CONFIG = [
         <circle cx="18" cy="16" r="3"></circle>
       </svg>
     ),
-    description: 'الألحان القبطية الكنسية مع النصوص باللغة القبطية والمعربة والتسجيلات الصوتية.'
+    description: 'الألحان القبطية الكنسية مع النصوص باللغة القبطية والمعربة والتسجيلات الصوتية مع خيارات تكرار الأرباع وسرعة الحفظ.'
   },
   {
     id: 'agbya',
@@ -35,7 +36,7 @@ const SUBJECTS_CONFIG = [
         <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
       </svg>
     ),
-    description: 'صلوات السواعي والمزامير والقطع الإنجيلية المقررة لمختلف المراحل.'
+    description: 'صلوات السواعي والمزامير والقطع الإنجيلية المقررة لمختلف المراحل الدراسية.'
   },
   {
     id: 'taks',
@@ -49,7 +50,7 @@ const SUBJECTS_CONFIG = [
         <path d="M2 12l10 5 10-5"></path>
       </svg>
     ),
-    description: 'الطقوس الكنسية، أشكال ومباني الكنيسة، الأواشي، والواجبات التعليمية.'
+    description: 'الطقوس الكنسية، أشكال ومباني الكنيسة، الأواشي، والواجبات التعليمية التطبيقية.'
   }
 ];
 
@@ -62,10 +63,14 @@ export default function SubjectsSection({ user = null }) {
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  // null => follow the current year / term from /config when logged in, or 'all' when guest
   const [selectedYear, setSelectedYear] = useState(null);
   const [selectedTerm, setSelectedTerm] = useState(null);
   const [selectedLevelId, setSelectedLevelId] = useState('all');
+  const [viewMode, setViewMode] = useState('split'); // 'split' (Master-Detail Portal) | 'grid'
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // For modal popup in 'grid' mode only
+  const [modalItem, setModalItem] = useState(null);
 
   const effectiveYear = selectedYear ?? (user ? String(config.currentYear) : 'all');
   const effectiveTerm = selectedTerm ?? (user ? String(config.currentTerm) : 'all');
@@ -110,35 +115,61 @@ export default function SubjectsSection({ user = null }) {
     return [...years].sort((a, b) => a - b);
   }, [items, config.currentYear]);
 
-  // 3. Filter items by Search, Year, Term, and Level.
-  // Items without a yearNumber / term are treated as general and always shown.
-  const filteredItems = items.filter((item) => {
-    const matchesSearch =
-      !searchQuery ||
-      (item.title && item.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (item.content && item.content.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (item.arabicContent && item.arabicContent.toLowerCase().includes(searchQuery.toLowerCase()));
+  // 3. Filter items by Search, Year, Term, and Level
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const matchesSearch =
+        !searchQuery ||
+        (item.title && item.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.content && item.content.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.arabicContent && item.arabicContent.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.copticArabicContent && item.copticArabicContent.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const hasYear = item.yearNumber !== undefined && item.yearNumber !== null && item.yearNumber !== '';
-    const matchesYear = effectiveYear === 'all' || !hasYear || String(item.yearNumber) === effectiveYear;
+      const hasYear = item.yearNumber !== undefined && item.yearNumber !== null && item.yearNumber !== '';
+      const matchesYear = effectiveYear === 'all' || !hasYear || String(item.yearNumber) === effectiveYear;
 
-    const hasTerm = item.term !== undefined && item.term !== null && item.term !== '';
-    const matchesTerm = effectiveTerm === 'all' || !hasTerm || String(item.term) === effectiveTerm;
+      const hasTerm = item.term !== undefined && item.term !== null && item.term !== '';
+      const matchesTerm = effectiveTerm === 'all' || !hasTerm || String(item.term) === effectiveTerm;
 
-    let matchesLevel = true;
-    if (selectedLevelId !== 'all') {
-      const targetId = Number(selectedLevelId);
-      if (Array.isArray(item.ageLevel)) {
-        matchesLevel = item.ageLevel.map(Number).includes(targetId);
-      } else if (item.ageLevel !== undefined && item.ageLevel !== null) {
-        matchesLevel = Number(item.ageLevel) === targetId;
-      } else {
-        matchesLevel = false;
+      let matchesLevel = true;
+      if (selectedLevelId !== 'all') {
+        const targetId = Number(selectedLevelId);
+        if (Array.isArray(item.ageLevel)) {
+          matchesLevel = item.ageLevel.map(Number).includes(targetId);
+        } else if (item.ageLevel !== undefined && item.ageLevel !== null) {
+          matchesLevel = Number(item.ageLevel) === targetId;
+        } else {
+          matchesLevel = false;
+        }
       }
-    }
 
-    return matchesSearch && matchesYear && matchesTerm && matchesLevel;
-  });
+      return matchesSearch && matchesYear && matchesTerm && matchesLevel;
+    });
+  }, [items, searchQuery, effectiveYear, effectiveTerm, selectedLevelId]);
+
+  // Auto-select first item when filtered items change if current selection is invalid
+  useEffect(() => {
+    if (filteredItems.length > 0) {
+      setSelectedItem((prev) => {
+        if (prev && filteredItems.some((it) => it.id === prev.id)) {
+          return prev;
+        }
+        return filteredItems[0];
+      });
+    } else {
+      setSelectedItem(null);
+    }
+  }, [filteredItems]);
+
+  const currentIndex = selectedItem
+    ? filteredItems.findIndex((it) => it.id === selectedItem.id)
+    : -1;
+
+  const handleSelectIndex = (idx) => {
+    if (idx >= 0 && idx < filteredItems.length) {
+      setSelectedItem(filteredItems[idx]);
+    }
+  };
 
   const currentConfig = SUBJECTS_CONFIG.find((s) => s.id === activeSubject);
   const activeSubjectDegree = config.degrees[activeSubject];
@@ -147,12 +178,17 @@ export default function SubjectsSection({ user = null }) {
     <section className="subjects-section" aria-label="Church Subjects Curriculum">
       {/* Academic overview driven by RTDB /config - displayed ONLY if a user is logged in */}
       {user && (
-        <div className={`academic-overview ${configStatus === 'loading' ? 'is-loading' : ''}`} aria-label="العام الدراسي الحالي">
+        <div
+          className={`academic-overview ${configStatus === 'loading' ? 'is-loading' : ''}`}
+          aria-label="العام الدراسي الحالي"
+        >
           <div className="academic-overview-stats">
             {config.academicYear && (
               <div className="academic-stat">
                 <span className="academic-stat-label">العام الدراسي</span>
-                <span className="academic-stat-value" dir="ltr">{config.academicYear}</span>
+                <span className="academic-stat-value" dir="ltr">
+                  {config.academicYear}
+                </span>
               </div>
             )}
             <div className="academic-stat">
@@ -188,7 +224,9 @@ export default function SubjectsSection({ user = null }) {
                   <span
                     className="week-progress-fill"
                     style={{
-                      width: `${Math.round(((currentTermInfo.currentWeek || 0) / currentTermInfo.weekCount) * 100)}%`,
+                      width: `${Math.round(
+                        ((currentTermInfo.currentWeek || 0) / currentTermInfo.weekCount) * 100
+                      )}%`
                     }}
                   />
                 </div>
@@ -234,7 +272,6 @@ export default function SubjectsSection({ user = null }) {
                 <span className="subject-tab-icon">{subj.icon}</span>
                 <div className="subject-tab-text">
                   <span className="subject-tab-title arabic-text">{subj.title}</span>
-                  {/* <span className="subject-tab-sub">{subj.titleEn}</span> */}
                 </div>
                 {user && config.degrees[subj.id] !== undefined && (
                   <span className="subject-tab-degree" title="الدرجة النهائية">
@@ -247,35 +284,53 @@ export default function SubjectsSection({ user = null }) {
         </div>
       </div>
 
-      {/* Active Subject Banner & Filters */}
+      {/* Active Subject Banner, Global Filters & View Switcher */}
       <div className="subject-toolbar">
         <div className="subject-info">
-          <h2 className="subject-heading arabic-text">
-            {currentConfig?.title}
-            {/* <span className="subject-heading-en">({currentConfig?.titleEn})</span> */}
-            {user && activeSubjectDegree !== undefined && (
-              <span className="subject-degree-pill">الدرجة النهائية: {activeSubjectDegree}</span>
-            )}
-          </h2>
+          <div className="subject-heading-row">
+            <h2 className="subject-heading arabic-text">
+              {currentConfig?.title}
+              {user && activeSubjectDegree !== undefined && (
+                <span className="subject-degree-pill">الدرجة النهائية: {activeSubjectDegree}</span>
+              )}
+            </h2>
+
+            {/* View Mode Switcher */}
+            <div className="view-mode-toggle" role="group" aria-label="طريقة العرض">
+              <button
+                type="button"
+                className={`view-mode-btn ${viewMode === 'split' ? 'active' : ''}`}
+                onClick={() => setViewMode('split')}
+                title="عرض التعلم المتكامل بدون نوافذ منبثقة"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="15" y1="3" x2="15" y2="21"></line>
+                </svg>
+                <span>العرض المتكامل</span>
+              </button>
+              <button
+                type="button"
+                className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                onClick={() => setViewMode('grid')}
+                title="عرض شبكة البطاقات التقليدية"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+                <span>شبكة البطاقات</span>
+              </button>
+            </div>
+          </div>
+
           <p className="subject-desc arabic-text">{currentConfig?.description}</p>
         </div>
 
+        {/* Global Toolbar Filters */}
         <div className="subject-filters">
-          {/* Search Box */}
-          <div className="search-box">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input
-              type="text"
-              placeholder="بحث في الدروس أو النصوص..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-input"
-            />
-          </div>
-
           {/* Level Filter Dropdown (Loaded from RTDB levelList) */}
           <div className="filter-select-wrapper">
             <select
@@ -293,7 +348,7 @@ export default function SubjectsSection({ user = null }) {
             </select>
           </div>
 
-          {/* Year Filter (default: currentYear from /config) */}
+          {/* Year Filter */}
           <div className="filter-select-wrapper">
             <select
               className="filter-select arabic-text"
@@ -305,13 +360,14 @@ export default function SubjectsSection({ user = null }) {
               <option value="all">كل السنوات</option>
               {yearOptions.map((y) => (
                 <option key={y} value={String(y)}>
-                  السنة {y}{user && y === Number(config.currentYear) ? ' (الحالية)' : ''}
+                  السنة {y}
+                  {user && y === Number(config.currentYear) ? ' (الحالية)' : ''}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Term Filter Chips (generated from /config/terms) */}
+          {/* Term Filter Chips */}
           <div className="term-filter-group" role="group" aria-label="تصفية حسب الترم">
             <button
               type="button"
@@ -335,37 +391,171 @@ export default function SubjectsSection({ user = null }) {
                 }
               >
                 {term.label}
-                {user && term.isCurrent && <span className="term-chip-current-dot" aria-label="الترم الحالي" />}
+                {user && term.isCurrent && (
+                  <span className="term-chip-current-dot" aria-label="الترم الحالي" />
+                )}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Grid of Subject Cards */}
+      {/* Main Content Area based on View Mode */}
       {loading ? (
         <div className="subjects-loading-state">
           <span className="btn-spinner"></span>
-          <p className="arabic-text">جاري تحميل المحتوى الدراسي...</p>
+          <p className="arabic-text">جاري تحميل المحتوى الدراسي ومناهج مدرسة الألحان...</p>
         </div>
       ) : filteredItems.length === 0 ? (
         <div className="subjects-empty-state">
-          <p className="arabic-text">لا توجد عناصر مطابقة لبحثك في قسم &quot;{currentConfig?.title}&quot;.</p>
-          {(effectiveYear !== 'all' || effectiveTerm !== 'all') && (
+          <p className="arabic-text">
+            لا توجد عناصر مطابقة لبحثك في قسم &quot;{currentConfig?.title}&quot;.
+          </p>
+          {(effectiveYear !== 'all' || effectiveTerm !== 'all' || selectedLevelId !== 'all' || searchQuery) && (
             <button
               type="button"
-              className="term-chip"
+              className="btn-primary-portal"
               id="btn-show-all-years-terms"
-              onClick={() => {
-                setSelectedYear('all');
-                setSelectedTerm('all');
-              }}
+              onClick={resetFilters}
             >
-              عرض كل السنوات والترمات
+              إعادة ضبط الفلاتر وعرض الكل
             </button>
           )}
         </div>
+      ) : viewMode === 'split' ? (
+        /* OPTION 1: Master-Detail Split Layout */
+        <div className={`subjects-portal-split-layout ${mobileSidebarOpen ? 'mobile-sidebar-open' : ''}`}>
+          {/* Mobile backdrop for drawer */}
+          {mobileSidebarOpen && (
+            <div
+              className="portal-sidebar-backdrop"
+              onClick={() => setMobileSidebarOpen(false)}
+              aria-hidden="true"
+            />
+          )}
+
+          {/* Sidebar Navigation Pane (Right side in RTL) */}
+          <aside className={`curriculum-sidebar-pane ${mobileSidebarOpen ? 'drawer-open' : ''}`}>
+            <div className="sidebar-header-bar">
+              <div className="sidebar-title-group">
+                <span className="sidebar-icon">📖</span>
+                <h3 className="sidebar-heading arabic-text">فهرس المحتوى</h3>
+                <span className="sidebar-count-chip">{filteredItems.length} درس</span>
+              </div>
+
+              {/* Mobile Close Button */}
+              <button
+                type="button"
+                className="sidebar-close-btn"
+                onClick={() => setMobileSidebarOpen(false)}
+                aria-label="إغلاق الفهرس"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Quick Search within the curriculum list */}
+            <div className="sidebar-search-box">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input
+                type="text"
+                placeholder="بحث في الدروس أو النصوص..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="sidebar-search-input"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="search-clear-btn"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="مسح البحث"
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+
+            {/* Items Navigation List */}
+            <div className="curriculum-items-list" role="list">
+              {filteredItems.map((item, idx) => {
+                const isSelected = selectedItem?.id === item.id;
+                const hasAudio = activeSubject === 'hymns' && !!item.audio;
+                const itemLevelNames = formatLevelNames(item.ageLevel, levels);
+
+                return (
+                  <div
+                    key={item.id}
+                    role="listitem"
+                    className={`curriculum-list-item ${isSelected ? 'active' : ''}`}
+                    onClick={() => {
+                      setSelectedItem(item);
+                      setMobileSidebarOpen(false);
+                    }}
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        setSelectedItem(item);
+                        setMobileSidebarOpen(false);
+                      }
+                    }}
+                  >
+                    <div className="list-item-index-badge">
+                      {idx + 1}
+                    </div>
+
+                    <div className="list-item-content">
+                      <div className="list-item-title-row">
+                        <span className="list-item-title arabic-text">{item.title}</span>
+                        {hasAudio && (
+                          <span className="audio-mini-indicator" title="يحتوي على تسجيل صوتي">
+                            ♪
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="list-item-meta-chips">
+                        {item.term !== undefined && (
+                          <span className="mini-chip term">ترم {item.term}</span>
+                        )}
+                        {item.yearNumber !== undefined && (
+                          <span className="mini-chip year">سنة {item.yearNumber}</span>
+                        )}
+                        {itemLevelNames[0] && (
+                          <span className="mini-chip level arabic-text">{itemLevelNames[0]}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="list-item-arrow" aria-hidden="true">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                      </svg>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </aside>
+
+          {/* Main Reader Pane (Left side in RTL) */}
+          <main className="curriculum-reader-area">
+            <SubjectReaderPane
+              item={selectedItem}
+              subjectId={activeSubject}
+              levels={levels}
+              items={filteredItems}
+              currentIndex={currentIndex}
+              onSelectIndex={handleSelectIndex}
+              onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
+            />
+          </main>
+        </div>
       ) : (
+        /* Traditional Grid of Cards */
         <div className="subjects-cards-grid">
           {filteredItems.map((item) => {
             const hasAudio = activeSubject === 'hymns' && !!item.audio;
@@ -376,18 +566,17 @@ export default function SubjectsSection({ user = null }) {
               item.description ||
               '';
 
-            // Format Arabic level names for preview
             const itemLevelNames = formatLevelNames(item.ageLevel, levels);
 
             return (
               <div
                 key={item.id}
                 className="subject-card"
-                onClick={() => setSelectedItem(item)}
+                onClick={() => setModalItem(item)}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') setSelectedItem(item);
+                  if (e.key === 'Enter') setModalItem(item);
                 }}
               >
                 <div className="subject-card-header">
@@ -413,7 +602,6 @@ export default function SubjectsSection({ user = null }) {
 
                 <h3 className="subject-card-title arabic-text">{item.title}</h3>
 
-                {/* Level tags on card preview */}
                 {itemLevelNames.length > 0 && (
                   <div className="card-level-tags">
                     {itemLevelNames.map((name, i) => (
@@ -444,13 +632,13 @@ export default function SubjectsSection({ user = null }) {
         </div>
       )}
 
-      {/* Selected Item Detail Modal with Level Names */}
-      {selectedItem && (
+      {/* Selected Item Detail Modal when in Grid View */}
+      {modalItem && (
         <SubjectDetailModal
-          item={selectedItem}
+          item={modalItem}
           subjectId={activeSubject}
           levels={levels}
-          onClose={() => setSelectedItem(null)}
+          onClose={() => setModalItem(null)}
         />
       )}
     </section>
